@@ -24,6 +24,11 @@ package object rabbitmq {
 
   case class ChannelMessage(onChannel: OnChannel, dropIfNoChannel: Boolean = true)
 
+  trait ChannelResponse
+  case object ChannelMessageDelivered extends ChannelResponse
+  case object ChannelMessageQueuedInMemory extends ChannelResponse
+  case object ChannelMessageDropped extends ChannelResponse
+
   implicit class ReachConnectionFactory(val self: ConnectionFactory) extends AnyVal {
     def uri: String = "amqp://%s@%s:%d/%s".format(self.getUsername, self.getHost, self.getPort, self.getVirtualHost)
   }

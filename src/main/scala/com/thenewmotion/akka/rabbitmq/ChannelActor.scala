@@ -1,6 +1,6 @@
 package com.thenewmotion.akka.rabbitmq
 
-import akka.actor.{ Props, ActorRef, FSM }
+import akka.actor.{Props, ActorRef, FSM}
 import collection.immutable.Queue
 import ConnectionActor.ProvideChannel
 
@@ -8,26 +8,26 @@ import ConnectionActor.ProvideChannel
  * @author Yaroslav Klymko
  */
 object ChannelActor {
+
   private[rabbitmq] sealed trait State
+
   private[rabbitmq] case object Disconnected extends State
+
   private[rabbitmq] case object Connected extends State
 
   private[rabbitmq] sealed trait Data
-  private[rabbitmq] case class InMemory(queue: Queue[OnChannel] = Queue()) extends Data
-  private[rabbitmq] case class Connected(channel: Channel) extends Data
 
-  @deprecated("Use com.thenewmotion.akka.rabbitmq.ChannelMessage instead", "0.3")
-  type ChannelMessage = com.thenewmotion.akka.rabbitmq.ChannelMessage
-  @deprecated("Use com.thenewmotion.akka.rabbitmq.ChannelMessage instead", "0.3")
-  val ChannelMessage = com.thenewmotion.akka.rabbitmq.ChannelMessage
+  private[rabbitmq] case class InMemory(queue: Queue[OnChannel] = Queue()) extends Data
+
+  private[rabbitmq] case class Connected(channel: Channel) extends Data
 
   def props(setupChannel: (Channel, ActorRef) => Any = (_, _) => ()): Props =
     Props(classOf[ChannelActor], setupChannel)
 }
 
 class ChannelActor(setupChannel: (Channel, ActorRef) => Any)
-    extends RabbitMqActor
-    with FSM[ChannelActor.State, ChannelActor.Data] {
+  extends RabbitMqActor
+  with FSM[ChannelActor.State, ChannelActor.Data] {
 
   import ChannelActor._
 
@@ -51,10 +51,10 @@ class ChannelActor(setupChannel: (Channel, ActorRef) => Any)
     case Event(ChannelMessage(onChannel, dropIfNoChannel), InMemory(queue)) =>
       if (dropIfNoChannel) {
         log.debug("dropping message {} in disconnected state", onChannel)
-        stay()
+        stay() replying ChannelMessageDropped
       } else {
         log.debug("queueing message {} in disconnected state", onChannel)
-        stay using InMemory(queue enqueue onChannel)
+        stay replying ChannelMessageQueuedInMemory using InMemory(queue enqueue onChannel)
       }
 
     case Event(_: ShutdownSignal, _) => stay()
@@ -73,8 +73,8 @@ class ChannelActor(setupChannel: (Channel, ActorRef) => Any)
       safe(f(channel)) match {
         case None =>
           reconnect(channel)
-          goto(Disconnected) using InMemory()
-        case _ => stay()
+          goto(Disconnected) replying ChannelMessageDropped using InMemory()
+        case _ => stay() replying ChannelMessageDelivered
       }
   }
   onTransition {
