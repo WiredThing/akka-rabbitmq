@@ -7,6 +7,8 @@
 
 # Maven
 /target/
+target/
 
 # Mac
 .DS_Store
+project/target/config-classes/$028e41e6881cc5258414$$anonfun$$sbtdef$1.class
